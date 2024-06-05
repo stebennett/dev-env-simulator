@@ -2,7 +2,6 @@ package simulator
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 )
 
@@ -29,9 +28,12 @@ type Environment struct {
 }
 
 type Team struct {
-	Name           string
-	Backlog        []*BacklogItem
-	WorkInProgress []*BacklogItem
+	Name              string
+	Backlog           []*BacklogItem
+	WorkInProgress    []*BacklogItem
+	TestingInProgress []*BacklogItem
+	BuildWIPLimit     int
+	TestingWIPLimit   int
 }
 
 type BacklogItem struct {
@@ -39,6 +41,7 @@ type BacklogItem struct {
 	Size        int
 	TestingSize int
 	DeployTo    string
+	Team        string
 }
 
 func NewSimulator() *Simulator {
@@ -53,6 +56,8 @@ func (s *Simulator) Initialise(
 	maxCycleTime int,
 	minTestingCycleTime int,
 	maxTestingCycleTime int,
+	buildWIPLimit int,
+	testingWIPLimit int,
 ) {
 
 	s.Services = []*Service{}
@@ -92,8 +97,12 @@ func (s *Simulator) Initialise(
 	// Build some team backlogs
 	for i := 0; i < numberOfTeams; i++ {
 		team := Team{
-			Name:    fmt.Sprintf("team-%d", i),
-			Backlog: []*BacklogItem{},
+			Name:              fmt.Sprintf("team-%d", i),
+			Backlog:           []*BacklogItem{},
+			TestingInProgress: []*BacklogItem{},
+			WorkInProgress:    []*BacklogItem{},
+			BuildWIPLimit:     buildWIPLimit,
+			TestingWIPLimit:   testingWIPLimit,
 		}
 
 		for i := 1; i <= 10; i++ {
@@ -102,6 +111,7 @@ func (s *Simulator) Initialise(
 				Size:        pickCycleTime(minCycleTime, maxCycleTime),
 				TestingSize: pickCycleTime(minTestingCycleTime, maxTestingCycleTime),
 				DeployTo:    pickService(s.Services).Name,
+				Team:        team.Name,
 			}
 
 			team.Backlog = append(team.Backlog, &backlogItem)
@@ -116,27 +126,28 @@ func (s *Simulator) Tick() {
 	// move items around backlog
 	for _, team := range s.Teams {
 		if len(team.Backlog) == 0 {
-			log.Println("Team has no backlog items")
 			continue
 		}
 
-		if (len(team.WorkInProgress) > 0) && (team.WorkInProgress[0].Size > 0) {
-			log.Println("Team has items in progress. Working...")
-			// Work on the item
-			item := team.WorkInProgress[0]
+		for _, item := range team.WorkInProgress {
 			item.Size--
 			if item.Size == 0 {
-				// Move the item from work in progress to done
 				team.WorkInProgress = team.WorkInProgress[1:]
 				s.moveToFirstEnvironment(item)
 			}
-			continue
-		} else if len(team.WorkInProgress) == 0 {
-			log.Println("Team has no items in progress. Pulling new ticket...")
-			// Move the first item from the backlog to the work in progress
-			item := team.Backlog[0]
-			team.WorkInProgress = append(team.WorkInProgress, item)
-			team.Backlog = team.Backlog[1:]
+		}
+
+		if (len(team.WorkInProgress) < team.BuildWIPLimit) && len(team.Backlog) > 0 {
+			// move items to the work in progress
+			for i := 0; i < team.BuildWIPLimit-len(team.WorkInProgress); i++ {
+				if len(team.Backlog) == 0 {
+					break
+				}
+
+				item := team.Backlog[0]
+				team.WorkInProgress = append(team.WorkInProgress, item)
+				team.Backlog = team.Backlog[1:]
+			}
 		}
 	}
 
@@ -145,12 +156,10 @@ func (s *Simulator) Tick() {
 		env := s.Environments[envIdx]
 		for thisEnvService, envService := range env.Services {
 			if envService.Age == 0 && len(envService.ItemsWaitingForTest) == 0 && envService.ItemUnderTest == nil {
-				log.Println("Service is empty. Waiting for testing...")
 				continue
 			}
 
 			if envService.ItemUnderTest == nil && len(envService.ItemsWaitingForTest) > 0 {
-				log.Printf("Service has items waiting for test. Moving to next item...")
 				envService.ItemUnderTest = envService.ItemsWaitingForTest[0]
 				envService.ItemsWaitingForTest = envService.ItemsWaitingForTest[1:]
 				envService.Version++
@@ -158,14 +167,11 @@ func (s *Simulator) Tick() {
 			}
 
 			if envService.ItemUnderTest != nil && envService.Age < envService.ItemUnderTest.TestingSize {
-				log.Println("Service is in testing. Running tests...")
 				envService.Age++
 				continue
 			}
 
 			if envService.Age == envService.ItemUnderTest.TestingSize {
-				log.Println("Service has been tested. Moving to next environment...")
-
 				// move item to next environment
 				if envIdx != len(s.Environments)-1 {
 					nextEnv := s.Environments[envIdx+1]

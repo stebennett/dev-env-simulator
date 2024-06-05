@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/stebennett/env-usage-simulator/pkg/config"
@@ -23,9 +24,12 @@ func main() {
 		conf.MaxCycleTime,
 		conf.MinTestingCycleTime,
 		conf.MaxTestingCycleTime,
+		conf.BuildWIPLimit,
+		conf.TestingWIPLimit,
 	)
 
 	for i := 0; i < conf.NumberOfCycles; i++ {
+		log.Printf("=========== CYCLE %d ==========", i)
 		simulator.Tick()
 		for _, team := range simulator.Teams {
 			printer.PrintSimulatorTeam(os.Stdout, team)

@@ -14,20 +14,24 @@ type Config struct {
 	MaxCycleTime         int
 	MinTestingCycleTime  int
 	MaxTestingCycleTime  int
+	TestingWIPLimit      int
+	BuildWIPLimit        int
 }
 
 func ParseConfig() (*Config, error) {
 	// Create a new instance of Config
 	config := &Config{}
 
-	flag.IntVar(&config.NumberOfServices, "services", 1, "The number of services to simulate")
-	flag.IntVar(&config.NumberOfTeams, "teams", 1, "The number of teams to simulate")
+	flag.IntVar(&config.NumberOfServices, "services", 5, "The number of services to simulate")
+	flag.IntVar(&config.NumberOfTeams, "teams", 3, "The number of teams to simulate")
 	flag.IntVar(&config.NumberOfEnvironments, "environments", 1, "The number of environments to simulate")
 	flag.IntVar(&config.NumberOfCycles, "cycles", 20, "The number of cycles to simulate")
 	flag.IntVar(&config.MinCycleTime, "minCycleTime", 1, "The minimum cycle time in seconds")
 	flag.IntVar(&config.MaxCycleTime, "maxCycleTime", 5, "The maximum cycle time in seconds")
 	flag.IntVar(&config.MinTestingCycleTime, "minTestingCycleTime", 1, "The testing cycle time in seconds")
 	flag.IntVar(&config.MaxTestingCycleTime, "maxTestingCycleTime", 5, "The testing cycle time in seconds")
+	flag.IntVar(&config.TestingWIPLimit, "testingWIPLimit", 1, "The maximum number of items in testing WIP per team")
+	flag.IntVar(&config.BuildWIPLimit, "buildWIPLimit", 1, "The maximum number of items in build WIP per team")
 
 	// Parse command line flags
 	flag.Parse()
