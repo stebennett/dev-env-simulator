@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"github.com/jedib0t/go-pretty/table"
-	"github.com/stebennett/env-usage-simulator/pkg/simulator"
+	"github.com/stebennett/dev-env-simulator/pkg/simulator"
 )
 
 func PrintSimulatorTeam(output io.Writer, team *simulator.Team) {

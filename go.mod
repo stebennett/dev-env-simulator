@@ -1,4 +1,4 @@
-module github.com/stebennett/env-usage-simulator
+module github.com/stebennett/dev-env-simulator
 
 go 1.22.1
 

@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/stebennett/env-usage-simulator/pkg/config"
-	"github.com/stebennett/env-usage-simulator/pkg/printer"
-	"github.com/stebennett/env-usage-simulator/pkg/simulator"
+	"github.com/stebennett/dev-env-simulator/pkg/config"
+	"github.com/stebennett/dev-env-simulator/pkg/printer"
+	"github.com/stebennett/dev-env-simulator/pkg/simulator"
 )
 
 func main() {
