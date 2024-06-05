@@ -17,14 +17,15 @@ type Service struct {
 }
 
 type EnvironmentService struct {
-	Service Service
-	Version int
-	Age     int
+	Version             int
+	Age                 int
+	ItemUnderTest       *BacklogItem
+	ItemsWaitingForTest []*BacklogItem
 }
 
 type Environment struct {
 	Name     string
-	Services []EnvironmentService
+	Services map[string]*EnvironmentService
 }
 
 type Team struct {
@@ -34,9 +35,10 @@ type Team struct {
 }
 
 type BacklogItem struct {
-	Key     string
-	Size    int
-	Service *Service
+	Key         string
+	Size        int
+	TestingSize int
+	DeployTo    string
 }
 
 func NewSimulator() *Simulator {
@@ -49,6 +51,8 @@ func (s *Simulator) Initialise(
 	numberOfTeams int,
 	minCycleTime int,
 	maxCycleTime int,
+	minTestingCycleTime int,
+	maxTestingCycleTime int,
 ) {
 
 	s.Services = []*Service{}
@@ -66,18 +70,19 @@ func (s *Simulator) Initialise(
 	for i := 0; i < numberOfEnvironments; i++ {
 		env := Environment{
 			Name:     fmt.Sprintf("env-%d", i),
-			Services: []EnvironmentService{},
+			Services: make(map[string]*EnvironmentService),
 		}
 
 		// Build Services
 		for _, service := range s.Services {
-			service := EnvironmentService{
-				Service: *service,
-				Version: 1,
-				Age:     0,
+			envService := EnvironmentService{
+				Version:             1,
+				Age:                 0,
+				ItemUnderTest:       nil,
+				ItemsWaitingForTest: []*BacklogItem{},
 			}
 
-			env.Services = append(env.Services, service)
+			env.Services[service.Name] = &envService
 		}
 
 		s.Environments = append(s.Environments, &env)
@@ -93,9 +98,10 @@ func (s *Simulator) Initialise(
 
 		for i := 1; i <= 10; i++ {
 			backlogItem := BacklogItem{
-				Key:     fmt.Sprintf("item-%d", i),
-				Size:    pickCycleTime(minCycleTime, maxCycleTime),
-				Service: pickService(s.Services),
+				Key:         fmt.Sprintf("%s-item-%d", team.Name, i),
+				Size:        pickCycleTime(minCycleTime, maxCycleTime),
+				TestingSize: pickCycleTime(minTestingCycleTime, maxTestingCycleTime),
+				DeployTo:    pickService(s.Services).Name,
 			}
 
 			team.Backlog = append(team.Backlog, &backlogItem)
@@ -122,6 +128,7 @@ func (s *Simulator) Tick() {
 			if item.Size == 0 {
 				// Move the item from work in progress to done
 				team.WorkInProgress = team.WorkInProgress[1:]
+				s.moveToFirstEnvironment(item)
 			}
 			continue
 		} else if len(team.WorkInProgress) == 0 {
@@ -130,6 +137,62 @@ func (s *Simulator) Tick() {
 			item := team.Backlog[0]
 			team.WorkInProgress = append(team.WorkInProgress, item)
 			team.Backlog = team.Backlog[1:]
+		}
+	}
+
+	// Move items around environments in reverse order
+	for envIdx := len(s.Environments) - 1; envIdx >= 0; envIdx-- {
+		env := s.Environments[envIdx]
+		for thisEnvService, envService := range env.Services {
+			if envService.Age == 0 && len(envService.ItemsWaitingForTest) == 0 && envService.ItemUnderTest == nil {
+				log.Println("Service is empty. Waiting for testing...")
+				continue
+			}
+
+			if envService.ItemUnderTest == nil && len(envService.ItemsWaitingForTest) > 0 {
+				log.Printf("Service has items waiting for test. Moving to next item...")
+				envService.ItemUnderTest = envService.ItemsWaitingForTest[0]
+				envService.ItemsWaitingForTest = envService.ItemsWaitingForTest[1:]
+				envService.Version++
+				envService.Age = 0
+			}
+
+			if envService.ItemUnderTest != nil && envService.Age < envService.ItemUnderTest.TestingSize {
+				log.Println("Service is in testing. Running tests...")
+				envService.Age++
+				continue
+			}
+
+			if envService.Age == envService.ItemUnderTest.TestingSize {
+				log.Println("Service has been tested. Moving to next environment...")
+
+				// move item to next environment
+				if envIdx != len(s.Environments)-1 {
+					nextEnv := s.Environments[envIdx+1]
+					for nextEnvServiceName, nextEnvService := range nextEnv.Services {
+						if nextEnvServiceName == thisEnvService {
+							nextEnvService.ItemsWaitingForTest = append(nextEnvService.ItemsWaitingForTest, envService.ItemUnderTest)
+							break
+						}
+					}
+				}
+
+				envService.Age = 0
+				envService.ItemUnderTest = nil
+
+				continue
+			}
+		}
+	}
+}
+
+func (s *Simulator) moveToFirstEnvironment(item *BacklogItem) {
+	// Move the item to the first environment
+	environment := s.Environments[0]
+	for serviceName, envService := range environment.Services {
+		if serviceName == item.DeployTo {
+			envService.ItemsWaitingForTest = append(envService.ItemsWaitingForTest, item)
+			return
 		}
 	}
 }

@@ -3,12 +3,13 @@ package printer
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/stebennett/env-usage-simulator/pkg/simulator"
 )
 
-func PrintSimulatorFields(output io.Writer, team *simulator.Team) {
+func PrintSimulatorTeam(output io.Writer, team *simulator.Team) {
 	t := table.NewWriter()
 	t.SetOutputMirror(output)
 	t.SetTitle(fmt.Sprintf("Team %s", team.Name))
@@ -30,6 +31,44 @@ func PrintSimulatorFields(output io.Writer, team *simulator.Team) {
 	}
 
 	t.AppendRow([]interface{}{"In Progress", ticketNames})
+
+	t.Render()
+}
+
+func PrintSimulatorEnvironment(output io.Writer, env *simulator.Environment) {
+	t := table.NewWriter()
+	t.SetOutputMirror(output)
+	t.SetTitle(fmt.Sprintf("Environment %s", env.Name))
+
+	t.AppendHeader(table.Row{"Service", "Version", "Age", "Item Under Test", "Items Waiting For Test"})
+
+	services := make([]string, 0, len(env.Services))
+	for k, _ := range env.Services {
+		services = append(services, k)
+	}
+	sort.Strings(services)
+
+	for _, serviceName := range services {
+		service := env.Services[serviceName]
+
+		itemUnderTest := ""
+		if service.ItemUnderTest != nil {
+			itemUnderTest = fmt.Sprintf("%s (%d)", service.ItemUnderTest.Key, service.ItemUnderTest.TestingSize)
+		}
+
+		itemsWaitingForTest := []string{}
+		for _, item := range service.ItemsWaitingForTest {
+			itemsWaitingForTest = append(itemsWaitingForTest, item.Key)
+		}
+
+		t.AppendRow([]interface{}{
+			serviceName,
+			service.Version,
+			service.Age,
+			itemUnderTest,
+			itemsWaitingForTest,
+		})
+	}
 
 	t.Render()
 }

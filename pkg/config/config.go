@@ -12,7 +12,8 @@ type Config struct {
 	NumberOfCycles       int
 	MinCycleTime         int
 	MaxCycleTime         int
-	TestingCycleTime     int
+	MinTestingCycleTime  int
+	MaxTestingCycleTime  int
 }
 
 func ParseConfig() (*Config, error) {
@@ -25,7 +26,8 @@ func ParseConfig() (*Config, error) {
 	flag.IntVar(&config.NumberOfCycles, "cycles", 20, "The number of cycles to simulate")
 	flag.IntVar(&config.MinCycleTime, "minCycleTime", 1, "The minimum cycle time in seconds")
 	flag.IntVar(&config.MaxCycleTime, "maxCycleTime", 5, "The maximum cycle time in seconds")
-	flag.IntVar(&config.TestingCycleTime, "testingCycleTime", 1, "The testing cycle time in seconds")
+	flag.IntVar(&config.MinTestingCycleTime, "minTestingCycleTime", 1, "The testing cycle time in seconds")
+	flag.IntVar(&config.MaxTestingCycleTime, "maxTestingCycleTime", 5, "The testing cycle time in seconds")
 
 	// Parse command line flags
 	flag.Parse()
@@ -60,8 +62,12 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("invalid maximum cycle time")
 	}
 
-	if config.TestingCycleTime < 1 {
+	if config.MinTestingCycleTime < 1 {
 		return fmt.Errorf("invalid testing cycle time")
+	}
+
+	if config.MaxTestingCycleTime <= config.MinTestingCycleTime {
+		return fmt.Errorf("invalid maximum testing cycle time")
 	}
 
 	return nil

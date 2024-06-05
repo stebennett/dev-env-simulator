@@ -21,12 +21,17 @@ func main() {
 		conf.NumberOfTeams,
 		conf.MinCycleTime,
 		conf.MaxCycleTime,
+		conf.MinTestingCycleTime,
+		conf.MaxTestingCycleTime,
 	)
 
 	for i := 0; i < conf.NumberOfCycles; i++ {
 		simulator.Tick()
 		for _, team := range simulator.Teams {
-			printer.PrintSimulatorFields(os.Stdout, team)
+			printer.PrintSimulatorTeam(os.Stdout, team)
+		}
+		for _, env := range simulator.Environments {
+			printer.PrintSimulatorEnvironment(os.Stdout, env)
 		}
 	}
 }
